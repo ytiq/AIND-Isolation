@@ -10,6 +10,34 @@ class SearchTimeout(Exception):
     pass
 
 
+def open_move_score(game, player):
+    """The basic evaluation function described in lecture that outputs a score
+    equal to the number of moves open for your computer player on the board.
+
+    Parameters
+    ----------
+    game : `isolation.Board`
+        An instance of `isolation.Board` encoding the current state of the
+        game (e.g., player locations and blocked cells).
+
+    player : hashable
+        One of the objects registered by the game object as a valid player.
+        (i.e., `player` should be either game.__player_1__ or
+        game.__player_2__).
+
+    Returns
+    ----------
+    float
+        The heuristic value of the current game state
+    """
+    if game.is_loser(player):
+        return float("-inf")
+
+    if game.is_winner(player):
+        return float("inf")
+    return float(len(game.get_legal_moves(player)))
+
+
 def custom_score(game, player):
     """Calculate the heuristic value of a game state from the point of view
     of the given player.
@@ -35,7 +63,11 @@ def custom_score(game, player):
         The heuristic value of the current game state to the specified player.
     """
     # TODO: finish this function!
-    raise NotImplementedError
+
+    return open_move_score(game, player)
+    if game.active_player == game._player_1:
+        return 1
+    return 0
 
 
 def custom_score_2(game, player):
@@ -112,6 +144,7 @@ class IsolationPlayer:
         positive value large enough to allow the function to return before the
         timer expires.
     """
+
     def __init__(self, search_depth=3, score_fn=custom_score, timeout=10.):
         self.search_depth = search_depth
         self.score = score_fn
@@ -212,8 +245,40 @@ class MinimaxPlayer(IsolationPlayer):
         if self.time_left() < self.TIMER_THRESHOLD:
             raise SearchTimeout()
 
+        result = self.util(game, depth)
+        return result[1]
+
+    def util(self, game, depth):
+        if self.time_left() < self.TIMER_THRESHOLD:
+            raise SearchTimeout()
+
+        if game.is_winner(self):
+            if self == game._player_1:
+                return float("inf"), game._board_state[2]
+            else:
+                return float("inf"), game._board_state[1]
+
         # TODO: finish this function!
-        raise NotImplementedError
+        is_max = self == game.active_player
+
+        legal_moves = game.get_legal_moves()
+        if not legal_moves:
+            return self.score(game, self), (-1, -1)
+
+        score = self.score(game, self)
+
+        if depth > 1:
+            try:
+                scores = [(self.util(game.forecast_move(move), depth - 1)[0], move) for move in legal_moves]
+            except SearchTimeout:
+                pass  # Handle any actions required after timeout as needed
+        else:
+            scores = [(self.score(game.forecast_move(move), self), move) for move in legal_moves]
+
+        if is_max:
+            return max(scores)
+        else:
+            return min(scores)
 
 
 class AlphaBetaPlayer(IsolationPlayer):
